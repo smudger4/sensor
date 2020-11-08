@@ -30,7 +30,7 @@ cycle_period = CYCLE_PERIOD_100_S
 
 # Which particle sensor, if any, is attached (PPD42, SDS011, or OFF)
 # read particle sensor type from environment
-particle_sensor_env_var = os.environ("PARTICLE_SENSOR_TYPE")
+particle_sensor_env_var = os.environ.get("PARTICLE_SENSOR_TYPE")
 
 if (particle_sensor_env_var == None):
     print("No 'PARTICLE_SENSOR_TYPE' environment variable set so assuming no particle sensor connected")
@@ -51,7 +51,7 @@ else:
 # readme and User Guide for more information.
 
 # read api key from environment
-api_key_env_var = os.environ("IOT_API_KEY")
+api_key_env_var = os.environ.get("IOT_API_KEY")
 if (api_key_env_var == None):
     print("Add IoT service API key to 'IOT_API_KEY' environment variable before running")
     exit(1)
