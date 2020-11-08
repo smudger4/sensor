@@ -14,8 +14,11 @@
 #  For code examples, datasheet and user guide, visit 
 #  https://github.com/metriful/sensor
 
+import os
 import requests
 from sensor_functions import *
+
+valid_sensors = {'PPD42': PARTICLE_SENSOR_PPD42, 'SDS011': PARTICLE_SENSOR_SDS011}
 
 #########################################################
 # USER-EDITABLE SETTINGS
@@ -26,7 +29,18 @@ from sensor_functions import *
 cycle_period = CYCLE_PERIOD_100_S
 
 # Which particle sensor, if any, is attached (PPD42, SDS011, or OFF)
-particleSensor = PARTICLE_SENSOR_OFF
+# read particle sensor type from environment
+particle_sensor_env_var = os.environ("PARTICLE_SENSOR_TYPE")
+
+if (particle_sensor_env_var == None):
+    print("No 'PARTICLE_SENSOR_TYPE' environment variable set so assuming no particle sensor connected")
+    particleSensor = PARTICLE_SENSOR_OFF
+else:
+    if (particle_sensor_env_var in valid_sensors):
+        particleSensor = valid_sensors[particle_sensor_env_var]
+    else:
+        print("Invalid sensor '%s' passed in - ignoring" % particle_sensor_env_var)
+        particleSensor = PARTICLE_SENSOR_OFF
 
 # IoT cloud settings.
 # This example uses the free IoT cloud hosting services provided 
@@ -36,6 +50,12 @@ particleSensor = PARTICLE_SENSOR_OFF
 # an internet connection to the Pi must exist. See the accompanying 
 # readme and User Guide for more information.
 
+# read api key from environment
+api_key_env_var = os.environ("IOT_API_KEY")
+if (api_key_env_var == None):
+    print("Add IoT service API key to 'IOT_API_KEY' environment variable before running")
+    exit(1)
+
 # Choose which provider to use
 use_Tago_cloud = True 
 # To use the ThingSpeak cloud, set: use_Tago_cloud=False
@@ -43,10 +63,10 @@ use_Tago_cloud = True
 # The chosen account's key/token must be inserted below.  
 if (use_Tago_cloud):
   # settings for Tago.io cloud
-  TAGO_DEVICE_TOKEN_STRING = "PASTE YOUR TOKEN HERE WITHIN QUOTES"
+  TAGO_DEVICE_TOKEN_STRING = api_key_env_var
 else:
   # settings for ThingSpeak.com cloud
-  THINGSPEAK_API_KEY_STRING = "PASTE YOUR API KEY HERE WITHIN QUOTES"
+  THINGSPEAK_API_KEY_STRING = api_key_env_var
 
 # END OF USER-EDITABLE SETTINGS
 #########################################################
@@ -128,10 +148,11 @@ while (True):
   # Additionally, for Tago, the following is sent:
   # 9  Air Quality Assessment summary (Good, Bad, etc.) 
   # 10 Peak sound amplitude / mPa 
+  # 11 Estimated CO2 ppm
   
   try:
     if use_Tago_cloud:
-      payload = [0]*10;
+      payload = [0]*11;
       payload[0] = {"variable":"temperature","value":"{:.1f}".format(air_data['T_C'])}
       payload[1] = {"variable":"pressure","value":air_data['P_Pa']}
       payload[2] = {"variable":"humidity","value":"{:.1f}".format(air_data['H_pc'])}
@@ -142,6 +163,7 @@ while (True):
       payload[7] = {"variable":"peak_amp","value":"{:.2f}".format(sound_data['peak_amp_mPa'])}
       payload[8] = {"variable":"illuminance","value":"{:.2f}".format(light_data['illum_lux'])}
       payload[9] = {"variable":"particulates","value":"{:.2f}".format(particle_data['concentration'])}
+      payload[10] = {"variable":"co2e","value":"{:.1f}".format(air_quality_data['CO2e'])}
       requests.post(tago_url, json=payload, headers=tago_header, timeout=2)
     else:
       # Use ThingSpeak.com cloud
