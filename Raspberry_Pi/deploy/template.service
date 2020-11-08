@@ -1,0 +1,10 @@
+[Unit]
+Description=Metriful sensor logging service to send info to Tado.io
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /usr/bin/sensor_logging_service.sh
+Environment="IOT_API_KEY=xxxxx"
+
+[Install]
+WantedBy=multi-user.target

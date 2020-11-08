@@ -33,7 +33,7 @@ cycle_period = CYCLE_PERIOD_100_S
 particle_sensor_env_var = os.environ.get("PARTICLE_SENSOR_TYPE")
 
 if (particle_sensor_env_var == None):
-    print("No 'PARTICLE_SENSOR_TYPE' environment variable set so assuming no particle sensor connected")
+    print("No 'PARTICLE_SENSOR_TYPE' environment variable set: no particle sensor connected")
     particleSensor = PARTICLE_SENSOR_OFF
 else:
     if (particle_sensor_env_var in valid_sensors):
