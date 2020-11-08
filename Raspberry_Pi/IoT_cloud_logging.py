@@ -60,7 +60,7 @@ if (api_key_env_var == None):
 use_Tago_cloud = True 
 # To use the ThingSpeak cloud, set: use_Tago_cloud=False
 
-# The chosen account's key/token must be inserted below.  
+# The chosen account's key/token taken from environment variables  
 if (use_Tago_cloud):
   # settings for Tago.io cloud
   TAGO_DEVICE_TOKEN_STRING = api_key_env_var
