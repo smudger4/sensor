@@ -7,4 +7,5 @@ Type=simple
 ExecStart=/bin/bash /usr/bin/mqtt_logging_service.sh xxxxx yyyyy
 
 [Install]
+WantedBy=network-online.target
 WantedBy=multi-user.target
