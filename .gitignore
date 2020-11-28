@@ -1,2 +1,3 @@
 *.pyc
 .DS_Store
+Raspberry_Pi/venv/*
