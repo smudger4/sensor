@@ -10,7 +10,7 @@ fi
 if [ "$#" -eq 1 ]; then
     # only API key provided
     # insert api-key from command line into service file
-    sed "s/xxxxx/$1/g" template.service > /tmp/$SERVICE.tmp
+    sed "s/xxxxx/$1/g" template-IoT.service > /tmp/$SERVICE.tmp
     sed "s/yyyyy//g" /tmp/$SERVICE.tmp > $SERVICE.service
 else
     # API key & sensor type provided

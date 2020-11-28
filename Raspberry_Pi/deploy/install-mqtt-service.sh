@@ -8,7 +8,7 @@ if [ "$#" -ne 2 ]; then
 fi
 
 # sensor name & sensor type provided
-sed "s/xxxxx/$1/g" template.service > /tmp/$SERVICE.tmp
+sed "s/xxxxx/$1/g" template-mqtt.service > /tmp/$SERVICE.tmp
 sed "s/yyyyy/$2/g" /tmp/$SERVICE.tmp > $SERVICE.service
 
 rm /tmp/$SERVICE.tmp

@@ -3,7 +3,7 @@ Description=Metriful sensor logging service to send info to local MQTT broker
 
 [Service]
 Type=simple
-ExecStart=/bin/bash /usr/bin/sensor_logging_service.sh xxxxx yyyyy
+ExecStart=/bin/bash /usr/bin/mqtt_logging_service.sh xxxxx yyyyy
 
 [Install]
 WantedBy=multi-user.target
