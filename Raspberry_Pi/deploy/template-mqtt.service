@@ -1,5 +1,6 @@
 [Unit]
 Description=Metriful sensor logging service to send info to local MQTT broker
+After=network-online.target
 
 [Service]
 Type=simple
