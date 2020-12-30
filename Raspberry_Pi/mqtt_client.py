@@ -220,12 +220,12 @@ def main(sensor_name, endpoint, cert, root_ca, key, particle_sensor, debug_flag)
     while True:
         # read payload from sensor
         payload = read_sensor(I2C_bus, validated_particle_sensor)
-            print("Publishing message to topic 'metriful/{}': {}".format(sensor_name, json.dumps(payload)))
-            mqtt_connection.publish(
-                topic="metriful/%s" % sensor_name,
-                payload=json.dumps(payload),
-                qos=mqtt.QoS.AT_LEAST_ONCE)
-            time.sleep(1)
+        print("Publishing message to topic 'metriful/{}': {}".format(sensor_name, json.dumps(payload)))
+        mqtt_connection.publish(
+            topic="metriful/%s" % sensor_name,
+            payload=json.dumps(payload),
+            qos=mqtt.QoS.AT_LEAST_ONCE)
+        time.sleep(1)
 
 
 
