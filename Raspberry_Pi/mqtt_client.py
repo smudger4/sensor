@@ -2,7 +2,11 @@ import time
 import logging
 import json
 import argparse
-import paho.mqtt.client as mqtt
+from awscrt import io, mqtt, auth, http
+from awsiot import mqtt_connection_builder
+import sys
+import threading
+from uuid import uuid4
 from sensor_constants import *
 
 try:
@@ -11,12 +15,47 @@ except ModuleNotFoundError:
     pass    # not running this on a Pi - ok in simulation mode
 
 # constants
-cycle_period = CYCLE_PERIOD_100_S
+cycle_period = CYCLE_PERIOD_3_S
 valid_sensors = {'PPD42': PARTICLE_SENSOR_PPD42, 'SDS011': PARTICLE_SENSOR_SDS011}
 
 # globals
 log = logging.getLogger("mqtt_publisher")
 simulation = False
+
+# Callback when connection is accidentally lost.
+def on_connection_interrupted(connection, error, **kwargs):
+    print("Connection interrupted. error: {}".format(error))
+
+
+# Callback when an interrupted connection is re-established.
+def on_connection_resumed(connection, return_code, session_present, **kwargs):
+    print("Connection resumed. return_code: {} session_present: {}".format(return_code, session_present))
+
+    if return_code == mqtt.ConnectReturnCode.ACCEPTED and not session_present:
+        print("Session did not persist. Resubscribing to existing topics...")
+        resubscribe_future, _ = connection.resubscribe_existing_topics()
+
+        # Cannot synchronously wait for resubscribe result because we're on the connection's event-loop thread,
+        # evaluate result with a callback instead.
+        resubscribe_future.add_done_callback(on_resubscribe_complete)
+
+
+def on_resubscribe_complete(resubscribe_future):
+        resubscribe_results = resubscribe_future.result()
+        print("Resubscribe results: {}".format(resubscribe_results))
+
+        for topic, qos in resubscribe_results['topics']:
+            if qos is None:
+                sys.exit("Server rejected resubscribe to topic: {}".format(topic))
+
+
+# Callback when the subscribed topic receives a message
+def on_message_received(topic, payload, **kwargs):
+    print("Received message from topic '{}': {}".format(topic, payload))
+    global received_count
+    received_count += 1
+    if received_count == args.count:
+        received_all_event.set()
 
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc):
@@ -139,19 +178,38 @@ def read_sensor(I2C_bus, particle_sensor):
     return payload
 
 
-def main(sensor_name, broker_ip, particle_sensor, debug_flag):
+
+def main(sensor_name, endpoint, cert, root_ca, key, particle_sensor, debug_flag):
     if (debug_flag):
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
 
-    client = mqtt.Client()
-    client.enable_logger(logger=log)
-    client.on_connect = on_connect
+    # Spin up resources
+    event_loop_group = io.EventLoopGroup(1)
+    host_resolver = io.DefaultHostResolver(event_loop_group)
+    client_bootstrap = io.ClientBootstrap(event_loop_group, host_resolver)
 
-    # connect to the broker
-    client.connect(broker_ip, 1883, 60)
-    client.loop_start()
+    mqtt_connection = mqtt_connection_builder.mtls_from_path(
+        endpoint=endpoint,
+        cert_filepath=cert,
+        pri_key_filepath=key,
+        client_bootstrap=client_bootstrap,
+        ca_filepath=root_ca,
+        on_connection_interrupted=on_connection_interrupted,
+        on_connection_resumed=on_connection_resumed,
+        client_id=sensor_name,
+        clean_session=False,
+        keep_alive_secs=6)
+
+    print("Connecting to {} with client ID '{}'...".format(
+        args.endpoint, args.client_id))
+
+    connect_future = mqtt_connection.connect()
+
+    # Future.result() waits until a result is available
+    connect_future.result()
+    print("Connected!")
 
     # ensure a valid sensor type was specified (if one was)
     validated_particle_sensor = validate_particle_sensor(particle_sensor)
@@ -162,7 +220,13 @@ def main(sensor_name, broker_ip, particle_sensor, debug_flag):
     while True:
         # read payload from sensor
         payload = read_sensor(I2C_bus, validated_particle_sensor)
-        client.publish("metriful/%s" % sensor_name, json.dumps(payload))
+            print("Publishing message to topic 'metriful/{}': {}".format(sensor_name, json.dumps(payload)))
+            mqtt_connection.publish(
+                topic="metriful/%s" % sensor_name,
+                payload=json.dumps(payload),
+                qos=mqtt.QoS.AT_LEAST_ONCE)
+            time.sleep(1)
+
 
 
 if __name__ == "__main__":
@@ -171,10 +235,18 @@ if __name__ == "__main__":
 
     # Add the arguments
     # mandatory
-    my_parser.add_argument('sensor_name', metavar='sensor_name', type=str, help='Name of this sensor')
-    my_parser.add_argument('broker_ip', metavar='broker_ip', type=str, help='IP address of the MQTT broker')
+    my_parser.add_argument('--sensor-name', required=True, type=str, help='Name of this sensor')
+    my_parser.add_argument('--endpoint', required=True, help="Your AWS IoT custom endpoint, not including a port. " +
+                                                      "Ex: \"abcd123456wxyz-ats.iot.us-east-1.amazonaws.com\"")
+    my_parser.add_argument('--cert', required=True, help="File path to your client certificate, in PEM format.")
+    my_parser.add_argument('--key', required=True, help="File path to your private key, in PEM format.")
+    my_parser.add_argument('--root-ca', required=True, help="File path to root certificate authority, in PEM format. " +
+                                        "Necessary if MQTT server uses a certificate that's not already in " +
+                                        "your trust store.")
+
 
     # optional
+    my_parser.add_argument('--client-id', default="test-" + str(uuid4()), help="Client ID for MQTT connection.")
     my_parser.add_argument('--particle', action='store', default=PARTICLE_SENSOR_OFF, type=str, help='Optional additional particle sensor type')
     my_parser.add_argument('-d', '--debug', action='store_true', help='Debug level logging')
     my_parser.add_argument('-s', '--simulate', action='store_true', help='Simulation mode (no sensor)')
@@ -185,4 +257,4 @@ if __name__ == "__main__":
     # set simulation mode
     simulation = args.simulate
 
-    main(args.sensor_name, args. broker_ip, args.particle, args.debug)
+    main(args.sensor_name, args.endpoint, args.cert, args.root_ca, args.key, args.particle, args.debug)
