@@ -1,0 +1,10 @@
+[Unit]
+Description=Metriful sensor logging service to send data to AWS IoT Core
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /usr/bin/awsiot_service.sh
+
+[Install]
+WantedBy=network-online.target
